@@ -1,0 +1,1 @@
+torchrun --nproc-per-node 8 pretrain_arc.py arch=sr2 

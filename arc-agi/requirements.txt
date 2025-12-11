@@ -1,0 +1,24 @@
+# Core dependencies
+torch>=2.0.0
+torchvision
+torchaudio
+numpy
+pydantic
+omegaconf
+hydra-core
+wandb
+coolname
+tqdm
+pyyaml
+argdantic
+
+# For building flash-attention and adam-atan2
+packaging
+ninja
+wheel
+setuptools
+setuptools-scm
+
+# Note: The following packages need special installation:
+# - adam-atan2: pip install --no-cache-dir --no-build-isolation adam-atan2
+# - flash-attn: See README for GPU-specific installation instructions

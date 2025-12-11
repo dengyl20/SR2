@@ -1,0 +1,102 @@
+from typing import Any, Tuple, Dict, Sequence, Optional
+
+import torch
+import torch.nn.functional as F
+from torch import nn
+
+
+IGNORE_LABEL_ID = -100
+
+
+def s(x, epsilon=1e-30):
+    return torch.where(
+        x<0,
+        1/(1-x+ epsilon),
+        x + 1
+    )
+
+
+def log_stablemax(x, dim=-1):
+    s_x = s(x)
+    return torch.log(s_x/torch.sum(s_x, dim=dim, keepdim=True))
+
+
+def stablemax_cross_entropy(logits, labels, ignore_index: int = -100):
+    logprobs = log_stablemax(logits.to(torch.float64), dim=-1)
+
+    valid_mask = labels != ignore_index
+    transformed_labels = torch.where(valid_mask, labels, 0)
+    prediction_logprobs = torch.gather(logprobs, index=transformed_labels.to(torch.long).unsqueeze(-1), dim=-1).squeeze(-1)
+
+    return -torch.where(valid_mask, prediction_logprobs, 0)
+
+
+class SingleLMLoss(nn.Module):
+    def __init__(self, model: nn.Module, loss_type: str):
+        super().__init__()
+        self.model = model
+        self.loss_fn = globals()[loss_type]
+
+    def initial_carry(self, *args, **kwargs):
+        return self.model.initial_carry(*args, **kwargs)  # type: ignore
+
+    def forward(
+        self,
+        return_keys: Sequence[str],
+        # Control flags.
+        compute_loss: bool = True,
+        core_only: Optional[bool] = None,
+        force_halt: Optional[bool] = None,
+        # Model keyword arguments forwarded to the underlying model.
+        **model_kwargs,
+    ) -> Tuple[Any, torch.Tensor, Dict[str, torch.Tensor], Optional[Dict[str, torch.Tensor]], torch.Tensor]:
+
+        # If core_only is not provided, treat it as the logical opposite of compute_loss.
+        if core_only is None:
+            core_only = (not compute_loss)
+        # Detach carry state only when computing loss (i.e., when not in core-only mode).
+        detach_carry_z = (not core_only)
+
+        # Run underlying model.
+        new_carry, outputs = self.model(
+            core_only=core_only,
+            detach_carry_z=detach_carry_z,
+            force_halt=force_halt,
+            **model_kwargs
+        )
+        labels = new_carry.current_data.get("labels", None)
+
+        # Only advance the recurrent state without computing loss or metrics.
+        if not compute_loss:
+            zero = torch.zeros(
+                (), device=new_carry.inner_carry.z.device, dtype=torch.float32
+            )
+            return new_carry, zero, {}, {}, new_carry.halted.all()
+
+        # Full loss and metrics computation.
+        assert labels is not None, "labels must be provided when compute_loss=True"
+        outputs_logits = outputs["logits"]
+        mask = labels != IGNORE_LABEL_ID
+        loss_counts = mask.sum(-1)
+        loss_divisor = loss_counts.clamp_min(1).unsqueeze(-1)
+
+        with torch.no_grad():
+            is_correct = mask & (torch.argmax(outputs_logits, dim=-1) == labels)
+            seq_is_correct = is_correct.sum(-1) == loss_counts
+
+            valid_metrics = new_carry.halted & (loss_counts > 0)
+            metrics = {
+                "count": valid_metrics.sum(),
+                "accuracy":       torch.where(valid_metrics, (is_correct.to(torch.float32) / loss_divisor).sum(-1), 0).sum(),
+                "exact_accuracy": (valid_metrics & seq_is_correct).sum(),
+                "steps":          torch.where(valid_metrics, new_carry.steps, 0).sum(),
+            }
+
+        lm_loss = (self.loss_fn(outputs_logits, labels, ignore_index=IGNORE_LABEL_ID) / loss_divisor).sum()
+        
+        metrics.update({
+            "lm_loss": lm_loss.detach(),
+        })
+
+        detached_outputs = {k: outputs[k].detach() for k in return_keys if k in outputs}
+        return new_carry, lm_loss, metrics, detached_outputs, new_carry.halted.all()

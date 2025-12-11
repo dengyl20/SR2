@@ -1,0 +1,15 @@
+name: sr2_model@SR2Model
+loss:
+  name: losses@SingleLMLoss
+  loss_type: stablemax_cross_entropy
+
+hidden_size: 512
+num_heads: 8  # min(2, hidden_size // 64)
+expansion: 4
+
+puzzle_emb_ndim: ${.hidden_size}
+
+pos_encodings: rope
+
+recurrent_steps_m: 16
+deep_supervision_steps_n: 16
