@@ -13,7 +13,9 @@
   <img src="https://img.shields.io/badge/CUDA-12.8-76B900.svg" alt="CUDA 12.8">
 </p>
 
+## 📰 News / Updates
 
+- **[2026.01]** 🎉 Congratulations! Our work has been accepted to **ICLR 2026** as a poster.
 
 ## 📘 Overview
 
@@ -216,15 +218,12 @@ Our project framework is built on top of these two excellent codebases.
 If you find this repository useful in your research, please consider citing:
 
 ```bibtex
-@misc{deng2025selectionreflectionselfrefinementrevisit,
-      title         = {Selection, Reflection and Self-Refinement: Revisit Reasoning Tasks via a Causal Lens},
-      author        = {Yunlong Deng and Boyang Sun and Yan Li and Lingjing Kong and Zeyu Tang and Kun Zhang and Guangyi Chen},
-      year          = {2025},
-      eprint        = {2510.08222},
-      archivePrefix = {arXiv},
-      primaryClass  = {cs.AI},
-      url           = {https://arxiv.org/abs/2510.08222}
+@inproceedings{deng2026selection,
+  title     = {Selection, Reflection and Self-Refinement: Revisit Reasoning Tasks via a Causal Lens},
+  author    = {Yunlong Deng and Boyang Sun and Yan Li and Zeyu Tang and Lingjing Kong and Kun Zhang and Guangyi Chen},
+  booktitle = {The Fourteenth International Conference on Learning Representations},
+  year      = {2026},
+  url       = {https://openreview.net/forum?id=0X5moS8KSm}
 }
-```
 
 
